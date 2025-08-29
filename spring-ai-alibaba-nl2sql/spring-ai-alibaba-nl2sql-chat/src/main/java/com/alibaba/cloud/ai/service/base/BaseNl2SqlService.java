@@ -84,9 +84,11 @@ public class BaseNl2SqlService {
 
 	public Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception {
 		logger.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId);
+		// 提取业务逻辑相关信息
 		List<String> evidences = extractEvidences(query, agentId);
 		logger.debug("Extracted {} evidences for rewriteStream", evidences.size());
 		SchemaDTO schemaDTO = select(query, evidences, agentId);
+		// 构建重写prompt
 		String prompt = PromptHelper.buildRewritePrompt(query, schemaDTO, evidences);
 		logger.debug("Built rewrite prompt for streaming");
 		Flux<ChatResponse> result = aiService.streamCall(prompt);
@@ -235,6 +237,7 @@ public class BaseNl2SqlService {
 		}
 		query = queryBuilder.toString();
 
+		// 关键词提取
 		String prompt = PromptHelper.buildQueryToKeywordsPrompt(query);
 		logger.debug("Calling LLM for keyword extraction");
 		String content = aiService.call(prompt);
@@ -252,6 +255,7 @@ public class BaseNl2SqlService {
 	public SchemaDTO select(String query, List<String> evidenceList, String agentId) throws Exception {
 		logger.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
 				evidenceList.size(), agentId);
+		// 提取关键词
 		List<String> keywords = extractKeywords(query, evidenceList);
 		logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
 		SchemaDTO schemaDTO;

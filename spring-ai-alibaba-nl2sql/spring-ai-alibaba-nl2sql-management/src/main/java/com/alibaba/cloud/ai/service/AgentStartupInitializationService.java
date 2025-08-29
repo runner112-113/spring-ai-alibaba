@@ -65,6 +65,7 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 
 	/**
 	 * Initialize all published agents
+	 * 初始化所有已发布的Agent
 	 */
 	private void initializePublishedAgents() {
 		try {

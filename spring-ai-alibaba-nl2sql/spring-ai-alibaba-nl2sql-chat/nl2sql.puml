@@ -1,0 +1,39 @@
+@startuml nl2sqlGraph
+title workflow graph
+
+[*] --> QUERY_REWRITE_NODE
+
+QUERY_REWRITE_NODE --> KEYWORD_EXTRACT_NODE : via QueryRewriteDispatcher
+QUERY_REWRITE_NODE --> [*] : via QueryRewriteDispatcher
+
+KEYWORD_EXTRACT_NODE --> SCHEMA_RECALL_NODE
+SCHEMA_RECALL_NODE --> TABLE_RELATION_NODE
+TABLE_RELATION_NODE --> PLANNER_NODE
+
+PLANNER_NODE --> PLAN_EXECUTOR_NODE
+
+PLAN_EXECUTOR_NODE --> PLANNER_NODE : via PlanExecutorDispatcher (repair)
+PLAN_EXECUTOR_NODE --> SQL_EXECUTE_NODE : via PlanExecutorDispatcher
+PLAN_EXECUTOR_NODE --> PYTHON_GENERATE_NODE : via PlanExecutorDispatcher
+PLAN_EXECUTOR_NODE --> REPORT_GENERATOR_NODE : via PlanExecutorDispatcher
+PLAN_EXECUTOR_NODE --> [*] : via PlanExecutorDispatcher (max repair attempts)
+
+PYTHON_GENERATE_NODE --> PYTHON_EXECUTE_NODE
+PYTHON_EXECUTE_NODE --> PYTHON_ANALYZE_NODE : via PythonExecutorDispatcher
+PYTHON_EXECUTE_NODE --> [*] : via PythonExecutorDispatcher
+PYTHON_EXECUTE_NODE --> PYTHON_GENERATE_NODE : via PythonExecutorDispatcher
+PYTHON_ANALYZE_NODE --> PLAN_EXECUTOR_NODE
+
+REPORT_GENERATOR_NODE --> [*]
+
+SQL_EXECUTE_NODE --> SQL_GENERATE_NODE : via SQLExecutorDispatcher
+SQL_EXECUTE_NODE --> SEMANTIC_CONSISTENCY_NODE : via SQLExecutorDispatcher
+
+SQL_GENERATE_NODE --> KEYWORD_EXTRACT_NODE : via SqlGenerateDispatcher
+SQL_GENERATE_NODE --> [*] : via SqlGenerateDispatcher
+SQL_GENERATE_NODE --> SQL_EXECUTE_NODE : via SqlGenerateDispatcher
+
+SEMANTIC_CONSISTENCY_NODE --> SQL_GENERATE_NODE : via SemanticConsistenceDispatcher
+SEMANTIC_CONSISTENCY_NODE --> PLAN_EXECUTOR_NODE : via SemanticConsistenceDispatcher
+
+@enduml

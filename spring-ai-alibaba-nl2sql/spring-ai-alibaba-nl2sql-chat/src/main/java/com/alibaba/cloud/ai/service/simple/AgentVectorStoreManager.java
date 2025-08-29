@@ -15,14 +15,29 @@
  */
 package com.alibaba.cloud.ai.service.simple;
 
+import io.micrometer.observation.ObservationRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.TokenCountBatchingStrategy;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
+import org.springframework.ai.vectorstore.observation.VectorStoreObservationConvention;
+import org.springframework.ai.vectorstore.redis.RedisVectorStore;
+import org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreProperties;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.stereotype.Component;
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.JedisClientConfig;
+import redis.clients.jedis.JedisPooled;
 
 import java.util.Collections;
 import java.util.List;
@@ -39,13 +54,16 @@ public class AgentVectorStoreManager {
 
 	private static final Logger log = LoggerFactory.getLogger(AgentVectorStoreManager.class);
 
-	private final Map<String, SimpleVectorStore> agentStores = new ConcurrentHashMap<>();
+	private final Map<String, RedisVectorStore> agentStores = new ConcurrentHashMap<>();
 
 	private final EmbeddingModel embeddingModel;
 
+	@Autowired
+	private ApplicationContext applicationContext;
+
 	public AgentVectorStoreManager(EmbeddingModel embeddingModel) {
 		this.embeddingModel = embeddingModel;
-		log.info("AgentVectorStoreManager initialized with EmbeddingModel: {}",
+        log.info("AgentVectorStoreManager initialized with EmbeddingModel: {}",
 				embeddingModel.getClass().getSimpleName());
 	}
 
@@ -54,14 +72,14 @@ public class AgentVectorStoreManager {
 	 * @param agentId agent ID
 	 * @return agent-specific SimpleVectorStore instance
 	 */
-	public SimpleVectorStore getOrCreateVectorStore(String agentId) {
+	public VectorStore getOrCreateVectorStore(String agentId) {
 		if (agentId == null || agentId.trim().isEmpty()) {
 			throw new IllegalArgumentException("Agent ID cannot be null or empty");
 		}
 
 		return agentStores.computeIfAbsent(agentId, id -> {
 			log.info("Creating new vector store for agent: {}", id);
-			return SimpleVectorStore.builder(embeddingModel).build();
+			return createRedisVectorStore(id);
 		});
 	}
 
@@ -76,7 +94,7 @@ public class AgentVectorStoreManager {
 			return;
 		}
 
-		SimpleVectorStore store = getOrCreateVectorStore(agentId);
+		VectorStore store = getOrCreateVectorStore(agentId);
 		store.add(documents);
 		log.info("Added {} documents to vector store for agent: {}", documents.size(), agentId);
 	}
@@ -89,7 +107,7 @@ public class AgentVectorStoreManager {
 	 * @return list of similar documents
 	 */
 	public List<Document> similaritySearch(String agentId, String query, int topK) {
-		SimpleVectorStore store = agentStores.get(agentId);
+		VectorStore store = agentStores.get(agentId);
 		if (store == null) {
 			log.warn("No vector store found for agent: {}", agentId);
 			return Collections.emptyList();
@@ -110,7 +128,7 @@ public class AgentVectorStoreManager {
 	 * @return list of similar documents
 	 */
 	public List<Document> similaritySearchWithFilter(String agentId, String query, int topK, String vectorType) {
-		SimpleVectorStore store = agentStores.get(agentId);
+		VectorStore store = agentStores.get(agentId);
 		if (store == null) {
 			log.warn("No vector store found for agent: {}", agentId);
 			return Collections.emptyList();
@@ -135,7 +153,7 @@ public class AgentVectorStoreManager {
 	 * @param agentId agent ID
 	 */
 	public void deleteAgentData(String agentId) {
-		SimpleVectorStore removed = agentStores.remove(agentId);
+		VectorStore removed = agentStores.remove(agentId);
 		if (removed != null) {
 			log.info("Deleted all vector data for agent: {}", agentId);
 		}
@@ -150,7 +168,7 @@ public class AgentVectorStoreManager {
 	 * @param documentIds list of document IDs to delete
 	 */
 	public void deleteDocuments(String agentId, List<String> documentIds) {
-		SimpleVectorStore store = agentStores.get(agentId);
+		VectorStore store = agentStores.get(agentId);
 		if (store == null) {
 			log.warn("No vector store found for agent: {}", agentId);
 			return;
@@ -168,7 +186,7 @@ public class AgentVectorStoreManager {
 	 * @param vectorType vector type
 	 */
 	public void deleteDocumentsByType(String agentId, String vectorType) {
-		SimpleVectorStore store = agentStores.get(agentId);
+		VectorStore store = agentStores.get(agentId);
 		if (store == null) {
 			log.warn("No vector store found for agent: {}", agentId);
 			return;
@@ -214,7 +232,7 @@ public class AgentVectorStoreManager {
 	 * @return document count
 	 */
 	public int getDocumentCount(String agentId) {
-		SimpleVectorStore store = agentStores.get(agentId);
+		VectorStore store = agentStores.get(agentId);
 		if (store == null) {
 			return 0;
 		}
@@ -257,6 +275,28 @@ public class AgentVectorStoreManager {
 		stats.put("documentCounts", agentDocCounts);
 
 		return stats;
+	}
+
+
+
+	public RedisVectorStore createRedisVectorStore(String indexName) {
+		JedisPooled jedisPooled = this.jedisPooled(applicationContext.getBean(JedisConnectionFactory.class));
+		RedisVectorStoreProperties properties = applicationContext.getBean(RedisVectorStoreProperties.class);
+		RedisVectorStore redisVectorStore = ((RedisVectorStore.Builder) RedisVectorStore.builder(jedisPooled, embeddingModel)
+				.initializeSchema(properties.isInitializeSchema())
+				.batchingStrategy(new TokenCountBatchingStrategy()))
+				.indexName(indexName)
+				.prefix(properties.getPrefix())
+				.build();
+		redisVectorStore.afterPropertiesSet();
+		return redisVectorStore;
+	}
+
+	private JedisPooled jedisPooled(JedisConnectionFactory jedisConnectionFactory) {
+		String host = jedisConnectionFactory.getHostName();
+		int port = jedisConnectionFactory.getPort();
+		JedisClientConfig clientConfig = DefaultJedisClientConfig.builder().ssl(jedisConnectionFactory.isUseSsl()).clientName(jedisConnectionFactory.getClientName()).timeoutMillis(jedisConnectionFactory.getTimeout()).password(jedisConnectionFactory.getPassword()).build();
+		return new JedisPooled(new HostAndPort(host, port), clientConfig);
 	}
 
 }

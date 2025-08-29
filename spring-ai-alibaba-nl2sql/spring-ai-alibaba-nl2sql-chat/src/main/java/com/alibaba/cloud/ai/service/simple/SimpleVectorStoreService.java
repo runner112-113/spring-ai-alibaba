@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +54,7 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 
 	private static final Logger log = LoggerFactory.getLogger(SimpleVectorStoreService.class);
 
-	private final SimpleVectorStore vectorStore; // Keep original global storage for
+	private final VectorStore vectorStore; // Keep original global storage for
 													// backward compatibility
 
 	private final AgentVectorStoreManager agentVectorStoreManager; // New agent vector
@@ -78,7 +79,7 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 		this.dbConfig = dbConfig;
 		this.embeddingModel = embeddingModel;
 		this.agentVectorStoreManager = agentVectorStoreManager;
-		this.vectorStore = SimpleVectorStore.builder(embeddingModel).build(); // Keep
+		this.vectorStore = agentVectorStoreManager.createRedisVectorStore("common"); // Keep
 																				// original
 																				// implementation
 		log.info("SimpleVectorStoreService initialized successfully with AgentVectorStoreManager");
@@ -256,7 +257,7 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 				Filter.Expression expression = b.eq("vectorType", deleteRequest.getVectorType()).build();
 				List<Document> documents = vectorStore
 					.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-						.topK(Integer.MAX_VALUE)
+						.topK(10)
 						.filterExpression(expression)
 						.build());
 				if (documents != null && !documents.isEmpty()) {
@@ -387,7 +388,7 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 		Map<String, List<String>> foreignKeyMap = buildForeignKeyMap(foreignKeyInfoBOS);
 
 		log.debug("Fetching tables from database for agent: {}", agentId);
-		List<TableInfoBO> tableInfoBOS = dbAccessor.fetchTables(dbConfig, dqp);
+		List<TableInfoBO> tableInfoBOS = dbAccessor.fetchTables(dbConfig, dqp).stream().filter(item -> "blacklist".equals(item.getName())).toList();
 		log.info("Found {} tables to process for agent: {}", tableInfoBOS.size(), agentId);
 
 		for (TableInfoBO tableInfoBO : tableInfoBOS) {

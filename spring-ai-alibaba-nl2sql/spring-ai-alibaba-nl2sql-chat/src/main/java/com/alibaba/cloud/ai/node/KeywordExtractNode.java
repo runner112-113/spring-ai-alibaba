@@ -72,7 +72,9 @@ public class KeywordExtractNode implements NodeAction {
 		return questions.parallelStream().map(question -> {
 			try {
 
+				// 提取业务逻辑相关
 				List<String> evidences = baseNl2SqlService.extractEvidences(question);
+				// 从 query+evidences 中提取关键词
 				List<String> keywords = baseNl2SqlService.extractKeywords(question, evidences);
 
 				logger.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
@@ -137,11 +139,14 @@ public class KeywordExtractNode implements NodeAction {
 		try {
 			logger.info("开始增强关键词提取处理...");
 
+			// 扩展问题，一个问题变多个相似的问题
 			List<String> expandedQuestions = baseNl2SqlService.expandQuestion(input);
 			logger.info("问题扩展结果: {}", expandedQuestions);
 
+			// 提取关键词
 			List<KeywordExtractionResult> extractionResults = processMultipleQuestions(expandedQuestions);
 
+			// 合并
 			List<String> mergedKeywords = mergeKeywords(extractionResults, input);
 			List<String> mergedEvidences = mergeEvidences(extractionResults);
 

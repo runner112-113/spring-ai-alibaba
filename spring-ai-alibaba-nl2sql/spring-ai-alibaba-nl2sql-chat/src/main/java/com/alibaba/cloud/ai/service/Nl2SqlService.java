@@ -68,6 +68,7 @@ public class Nl2SqlService {
 		if (agentId == null) {
 			agentId = "";
 		}
+		// 传入上下文变量
 		Map<String, Object> stateMap = Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId);
 		Optional<OverAllState> invoke = this.nl2sqlGraph.invoke(stateMap);
 		OverAllState state = invoke.orElseThrow(() -> {

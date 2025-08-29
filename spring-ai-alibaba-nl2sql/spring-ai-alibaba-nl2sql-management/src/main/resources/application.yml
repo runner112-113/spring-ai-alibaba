@@ -1,6 +1,9 @@
 server:
   port: 8065
 spring:
+  data:
+    redis:
+      url: redis://172.31.231.183:6379
   datasource:
     url: ${NL2SQL_DATASOURCE_URL:jdbc:mysql://172.31.231.230:3306/casclient?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowMultiQueries=true}
     username: ${NL2SQL_DATASOURCE_USERNAME:groupone}
@@ -38,6 +41,9 @@ spring:
         name: xiyan-server    # MCP服务器名称
         version: 0.0.1           # 服务器版本号
     vectorstore:
+      redis:
+        index-name: ai-index
+        initialize-schema: true
       analytic:
         enabled: false
         collectName: chatBi

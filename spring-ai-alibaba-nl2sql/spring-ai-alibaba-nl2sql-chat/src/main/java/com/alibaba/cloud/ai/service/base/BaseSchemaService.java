@@ -80,10 +80,13 @@ public abstract class BaseSchemaService {
 	 */
 	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords) {
 		SchemaDTO schemaDTO = new SchemaDTO();
+		// 提取数据库名
 		extractDatabaseName(schemaDTO); // Set database name or schema name
 
+		// 获取查询相关的表
 		List<Document> tableDocuments = getTableDocuments(query, agentId); // Get table
 																			// documents
+		// 根据keywords信息 获取相关列 每个keyword --> List<Document>
 		List<List<Document>> columnDocumentList = getColumnDocumentsByKeywords(keywords, agentId); // Get
 																									// column
 																									// document
@@ -97,11 +100,13 @@ public abstract class BaseSchemaService {
 	public void buildSchemaFromDocuments(List<List<Document>> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO) {
 		// Process column weights and sort by table association
+		// 处理列的权重并排序
 		processColumnWeights(columnDocumentList, tableDocuments);
 
 		// Initialize column selector, TODO upper limit 100 has issues
 		Map<String, Document> weightedColumns = selectWeightedColumns(columnDocumentList, 100);
 
+		// 获取关联外键
 		Set<String> foreignKeySet = extractForeignKeyRelations(tableDocuments);
 
 		// Build table list
@@ -241,7 +246,7 @@ public abstract class BaseSchemaService {
 	 * Select up to maxCount columns by weight
 	 */
 	protected Map<String, Document> selectWeightedColumns(List<List<Document>> columnDocumentList, int maxCount) {
-		Map<String, Document> result = new HashMap<>();
+		Map<String/*docId*/, Document> result = new HashMap<>();
 		int index = 0;
 
 		while (result.size() < maxCount) {
@@ -291,6 +296,7 @@ public abstract class BaseSchemaService {
 	 * Score each column (combining with its table's score)
 	 */
 	public void processColumnWeights(List<List<Document>> columnDocuments, List<Document> tableDocuments) {
+		// 处理每个关键词 对应的List<Document>
 		columnDocuments.replaceAll(docs -> docs.stream()
 			.filter(column -> tableDocuments.stream()
 				.anyMatch(table -> table.getMetadata().get("name").equals(column.getMetadata().get("tableName"))))

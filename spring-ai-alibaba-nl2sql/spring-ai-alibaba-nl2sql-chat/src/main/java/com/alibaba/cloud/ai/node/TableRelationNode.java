@@ -105,7 +105,9 @@ public class TableRelationNode implements NodeAction {
 		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state);
 
 		// Extract business knowledge and semantic model
+		// 业务知识召回
 		List<BusinessKnowledgeDTO> businessKnowledges = businessKnowledgeRecallService.getFieldByDataSetId(dataSetId);
+		// 语义模型召回
 		List<SemanticModelDTO> semanticModel = semanticModelRecallService.getFieldByDataSetId(String.valueOf(agentId));
 		// load prompt template
 		String businessKnowledgePrompt = buildBusinessKnowledgePrompt(businessKnowledges);

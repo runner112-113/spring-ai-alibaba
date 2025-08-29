@@ -62,6 +62,7 @@ public class QueryRewriteNode implements NodeAction {
 		// Use streaming utility class for content collection and result mapping
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				"开始进行问题重写...", "问题重写完成！",
+				// 最后结果的处理
 				finalResult -> Map.of(QUERY_REWRITE_NODE_OUTPUT, finalResult, RESULT, finalResult),
 				baseNl2SqlService.rewriteStream(input, agentId), StreamResponseType.REWRITE);
 
