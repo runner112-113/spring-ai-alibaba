@@ -34,6 +34,7 @@ import java.util.Map;
 /**
  * Agent Schema Initialization Controller Handles agent's database Schema initialization
  * to vector storage
+ * 数据库Schema管理
  */
 @Controller
 @RequestMapping("/api/agent/{agentId}/schema")

@@ -138,6 +138,7 @@ public class ReportGeneratorNode implements NodeAction {
 		String analysisStepsAndData = buildAnalysisStepsAndData(plan, executionResults);
 
 		// Get optimization configs if available
+		// 获取对应类型的用户提示词
 		List<UserPromptConfig> optimizationConfigs = promptConfigService.getOptimizationConfigs("report-generator");
 
 		// Use PromptHelper to build report generation prompt with optimization support

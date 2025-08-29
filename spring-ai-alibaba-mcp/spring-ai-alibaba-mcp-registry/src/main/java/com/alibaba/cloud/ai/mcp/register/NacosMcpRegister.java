@@ -183,6 +183,7 @@ public class NacosMcpRegister implements ApplicationListener<WebServerInitialize
 				serverBasicInfo.setFrontProtocol(AiConstants.Mcp.MCP_PROTOCOL_SSE);
 			}
 			try {
+				// nacos上创建mcp服务信息
 				this.nacosMcpOperationService.createMcpServer(this.serverInfo.name(), serverBasicInfo, mcpToolSpec,
 						endpointSpec);
 			}
@@ -204,6 +205,7 @@ public class NacosMcpRegister implements ApplicationListener<WebServerInitialize
 					throw new Exception("check mcp server compatible false");
 				}
 			}
+			// 订阅
 			subscribe();
 			this.success = true;
 		}
