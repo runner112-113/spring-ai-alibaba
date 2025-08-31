@@ -65,9 +65,11 @@ public class PlannerNode implements NodeAction {
 		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
 
 		SchemaDTO schemaDTO = (SchemaDTO) state.value(TABLE_RELATION_OUTPUT).orElseThrow();
+		// 获取最终的Schema
 		String schemaStr = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
 
 		// Check if this is a repair attempt
+		// 判断是否是错误后的重试
 		String validationError = StateUtils.getStringValue(state, PLAN_VALIDATION_ERROR, null);
 		String userPrompt;
 		if (validationError != null) {

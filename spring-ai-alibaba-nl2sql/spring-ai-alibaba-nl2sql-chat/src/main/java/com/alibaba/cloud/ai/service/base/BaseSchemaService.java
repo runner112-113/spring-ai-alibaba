@@ -80,13 +80,13 @@ public abstract class BaseSchemaService {
 	 */
 	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords) {
 		SchemaDTO schemaDTO = new SchemaDTO();
-		// 提取数据库名
+		// 从dbConfig中提取数据库名
 		extractDatabaseName(schemaDTO); // Set database name or schema name
 
-		// 获取查询相关的表
+		// 根据query获取相关的表 vectorType = "table"
 		List<Document> tableDocuments = getTableDocuments(query, agentId); // Get table
 																			// documents
-		// 根据keywords信息 获取相关列 每个keyword --> List<Document>
+		// 根据keywords信息 获取相关列 每个keyword --> List<Document>  vectorType = "column"
 		List<List<Document>> columnDocumentList = getColumnDocumentsByKeywords(keywords, agentId); // Get
 																									// column
 																									// document
@@ -100,16 +100,18 @@ public abstract class BaseSchemaService {
 	public void buildSchemaFromDocuments(List<List<Document>> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO) {
 		// Process column weights and sort by table association
-		// 处理列的权重并排序
+		// 根据表的分数来重新计算列的分数并排序  列的分数 = 表的分数 * 列的分数
 		processColumnWeights(columnDocumentList, tableDocuments);
 
 		// Initialize column selector, TODO upper limit 100 has issues
+		// 一次选取每个关键词第n大的值 最多取100个
 		Map<String, Document> weightedColumns = selectWeightedColumns(columnDocumentList, 100);
 
 		// 获取关联外键
 		Set<String> foreignKeySet = extractForeignKeyRelations(tableDocuments);
 
 		// Build table list
+		// 选表
 		List<TableDTO> tableList = buildTableListFromDocuments(tableDocuments);
 
 		// Supplement missing foreign key corresponding tables
@@ -117,6 +119,7 @@ public abstract class BaseSchemaService {
 		expandColumnDocumentsWithForeignKeys(weightedColumns, foreignKeySet, "column");
 
 		// Attach weighted columns to corresponding tables
+		// 为每个表选列
 		attachColumnsToTables(weightedColumns, tableList);
 
 		// Finally assemble SchemaDTO

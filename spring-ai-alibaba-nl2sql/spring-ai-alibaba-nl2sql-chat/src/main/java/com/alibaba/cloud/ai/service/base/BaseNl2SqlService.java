@@ -84,7 +84,7 @@ public class BaseNl2SqlService {
 
 	public Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception {
 		logger.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId);
-		// 提取业务逻辑相关信息
+		// 提取业务逻辑相关信息 RAG agentId, vectorType = "evidence"
 		List<String> evidences = extractEvidences(query, agentId);
 		logger.debug("Extracted {} evidences for rewriteStream", evidences.size());
 		SchemaDTO schemaDTO = select(query, evidences, agentId);
@@ -101,6 +101,7 @@ public class BaseNl2SqlService {
 		List<String> evidences = extractEvidences(query);
 		logger.debug("Extracted {} evidences for rewrite", evidences.size());
 		SchemaDTO schemaDTO = select(query, evidences);
+		// 重写sql
 		String prompt = PromptHelper.buildRewritePrompt(query, schemaDTO, evidences);
 		logger.debug("Built rewrite prompt, calling LLM");
 		String responseContent = aiService.call(prompt);
@@ -255,9 +256,10 @@ public class BaseNl2SqlService {
 	public SchemaDTO select(String query, List<String> evidenceList, String agentId) throws Exception {
 		logger.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
 				evidenceList.size(), agentId);
-		// 提取关键词
+		// 集合evidenceList + query 提取关键词
 		List<String> keywords = extractKeywords(query, evidenceList);
 		logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
+		// 结合查询以及keywords 获取Scheme信息  db、table、column， 均取top100
 		SchemaDTO schemaDTO;
 		if (agentId != null) {
 			schemaDTO = schemaService.mixRagForAgent(agentId, query, keywords);
@@ -266,6 +268,7 @@ public class BaseNl2SqlService {
 			schemaDTO = schemaService.mixRag(query, keywords);
 		}
 		logger.debug("Retrieved schema with {} tables", schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
+		// 细粒度提取 table
 		SchemaDTO result = fineSelect(schemaDTO, query, evidenceList);
 		logger.debug("Fine selection completed, final schema has {} tables",
 				result.getTable() != null ? result.getTable().size() : 0);
@@ -286,6 +289,7 @@ public class BaseNl2SqlService {
 		logger.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
 
 		// TODO 时间处理暂时未应用
+		// 时间提取
 		String dateTimeExtractPrompt = PromptHelper.buildDateTimeExtractPrompt(query);
 		logger.debug("Extracting datetime expressions");
 		String content = aiService.call(dateTimeExtractPrompt);
@@ -376,6 +380,7 @@ public class BaseNl2SqlService {
 
 		if (content != null && !content.trim().isEmpty()) {
 			String jsonContent = MarkdownParser.extractText(content);
+			// 提取表
 			List<String> tableList;
 			try {
 				tableList = new Gson().fromJson(jsonContent, new TypeToken<List<String>>() {

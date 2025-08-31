@@ -31,9 +31,11 @@ public class SQLExecutorDispatcher implements EdgeAction {
 	public String apply(OverAllState state) {
 		boolean present = StateUtils.hasValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT);
 		if (present) {
+			// sql重写生成
 			return SQL_GENERATE_NODE;
 		}
 		else {
+			// sql语义一致性校验
 			return SEMANTIC_CONSISTENCY_NODE;
 		}
 	}

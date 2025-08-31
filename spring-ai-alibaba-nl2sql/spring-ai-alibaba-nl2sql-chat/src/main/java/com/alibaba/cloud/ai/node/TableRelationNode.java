@@ -101,7 +101,9 @@ public class TableRelationNode implements NodeAction {
 		}
 
 		// Execute business logic first - get final result immediately
+		// 构建初始的Schema - 会对应多个表以及对应的列集合
 		SchemaDTO schemaDTO = buildInitialSchema(columnDocumentsByKeywords, tableDocuments);
+		// 通过LLM从多个table中选取
 		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state);
 
 		// Extract business knowledge and semantic model
@@ -142,6 +144,7 @@ public class TableRelationNode implements NodeAction {
 	private SchemaDTO buildInitialSchema(List<List<Document>> columnDocumentsByKeywords,
 			List<Document> tableDocuments) {
 		SchemaDTO schemaDTO = new SchemaDTO();
+		// 通过dbconfig提取database
 		baseSchemaService.extractDatabaseName(schemaDTO);
 		baseSchemaService.buildSchemaFromDocuments(columnDocumentsByKeywords, tableDocuments, schemaDTO);
 		return schemaDTO;
